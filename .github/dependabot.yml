@@ -1,6 +1,12 @@
-# Keeps uv.lock fresh so the committed lock (and the Community Cloud demo, which
-# deploys from it) tracks current Streamlit and its dependencies. All updates are
-# batched into one daily PR to keep the noise down for a template repo.
+# Keeps both kinds of dependency current, batched into one PR per ecosystem to
+# keep the noise down for a template repo:
+#
+#   uv      — uv.lock, which the committed lock (and the Community Cloud demo,
+#             which deploys from it) resolves against, so it tracks current
+#             Streamlit and its dependencies.
+#   actions — the actions the test workflow runs. Those are referenced by moving
+#             major tags (@v7, @v9) rather than commit SHAs, so without this
+#             entry they would quietly fall behind.
 version: 2
 updates:
   - package-ecosystem: "uv"
@@ -9,5 +15,16 @@ updates:
       interval: "daily"
     groups:
       python-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    # Actions majors land a few times a year, so weekly is enough; grouping keeps
+    # a round of bumps to a single PR that CI can then verify.
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
         patterns:
           - "*"
