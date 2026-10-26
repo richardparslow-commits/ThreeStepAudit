@@ -21,7 +21,10 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9
+        # Pinned to an exact release, not a moving major: setup-uv stopped
+        # publishing `vN` aliases after v7, so `@v9` (which does exist as
+        # v9.0.0) has no alias to resolve and the job dies before any test.
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           enable-cache: true
 

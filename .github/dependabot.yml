@@ -4,9 +4,10 @@
 #   uv      — uv.lock, which the committed lock (and the Community Cloud demo,
 #             which deploys from it) resolves against, so it tracks current
 #             Streamlit and its dependencies.
-#   actions — the actions the test workflow runs. Those are referenced by moving
-#             major tags (@v7, @v9) rather than commit SHAs, so without this
-#             entry they would quietly fall behind.
+#   actions — the actions the test workflow runs. Those are referenced by a
+#             moving major tag (@v7) or an exact release (@v10.3.2, because
+#             setup-uv stopped publishing major aliases after v7) rather than
+#             commit SHAs, so without this entry they would quietly fall behind.
 version: 2
 updates:
   - package-ecosystem: "uv"
