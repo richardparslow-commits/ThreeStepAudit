@@ -40,25 +40,7 @@ $ curl -LsSf https://astral.sh/uv/install.sh | sh
    $ uv run streamlit run streamlit_app.py
    ```
 
-### Committing
+### Contributing
 
-`scripts/commit.sh` reads the commit message from stdin and hands it to git as a
-file, so nothing in the message is ever re-parsed as shell syntax:
-
-```
-$ scripts/commit.sh <<'EOF'
-Subject line
-
-Body — apostrophes, $HOME, `backticks` and "quotes" all stay literal.
-EOF
-```
-
-Any further arguments are passed straight to `git commit`, so
-`scripts/commit.sh -a <<'EOF'` stages tracked changes as usual. The script
-refuses an empty message, and refuses a terminal on stdin rather than silently
-waiting for one.
-
-Keep the heredoc at the top level, though: `git commit -m "$(cat <<'EOF' … EOF)"`
-fails on the bash 3.2 that macOS ships, because a heredoc inside `$( )` is not
-treated as a message body — a single apostrophe ("visitor's") ends the command
-with `unexpected EOF while looking for matching '` before git ever runs.
+Running the suite and committing with `scripts/commit.sh` is covered in
+[CONTRIBUTING.md](CONTRIBUTING.md).
