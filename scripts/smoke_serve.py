@@ -7,10 +7,18 @@ passes it. This script runs the real server, waits for the health endpoint, and
 exits non-zero if the app never answers.
 
 Run it with `uv run python scripts/smoke_serve.py`.
+
+Pass `--stacks` to make a failure diagnostic: the server is started through a
+bootstrap that installs a `faulthandler` handler on SIGUSR1, so when it never
+answers this script can ask the hung process to dump every thread's stack before
+it kills it. That dump is the only reliable way to tell a blocked event loop
+from a socket that is accepted and never serviced.
 """
 
 from __future__ import annotations
 
+import argparse
+import signal
 import socket
 import subprocess
 import sys
@@ -29,6 +37,16 @@ START_TIMEOUT = 40.0
 POLL_INTERVAL = 0.25
 REQUEST_TIMEOUT = 5.0
 
+#: `python -m streamlit` with a stack-dump handler installed. faulthandler writes
+#: from a C-level signal handler, so it can report the stacks of threads that are
+#: too stuck to run Python themselves.
+SERVE_WITH_STACKS = (
+    "import faulthandler, runpy, signal, sys\n"
+    "faulthandler.register(signal.SIGUSR1, all_threads=True)\n"
+    "sys.argv = ['streamlit', *sys.argv[1:]]\n"
+    "runpy.run_module('streamlit', run_name='__main__')\n"
+)
+
 
 def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -45,12 +63,34 @@ def fetch(url: str) -> tuple[int, str]:
         return int(exc.code), exc.read(200).decode("utf-8", "replace")
 
 
+def request_stack_dump(process: subprocess.Popen) -> None:
+    """Ask a hung server to dump its threads, into the log the caller prints."""
+    if process.poll() is not None:
+        print("(no stack dump: the server had already exited)")
+        return
+    if not hasattr(signal, "SIGUSR1"):
+        print("(no stack dump: SIGUSR1 does not exist on this platform)")
+        return
+    print(f"--- asking pid {process.pid} for thread stacks (SIGUSR1) ---")
+    try:
+        process.send_signal(signal.SIGUSR1)
+    except OSError as exc:  # process raced us to exit
+        print(f"(no stack dump: {type(exc).__name__}: {exc})")
+        return
+    time.sleep(1.5)
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--stacks",
+        action="store_true",
+        help="on failure, dump the hung server's thread stacks before killing it",
+    )
+    args = parser.parse_args()
+
     port = free_port()
-    command = [
-        sys.executable,
-        "-m",
-        "streamlit",
+    serve_args = [
         "run",
         str(APP),
         "--server.headless",
@@ -62,6 +102,10 @@ def main() -> int:
         "--browser.gatherUsageStats",
         "false",
     ]
+    if args.stacks:
+        command = [sys.executable, "-c", SERVE_WITH_STACKS, *serve_args]
+    else:
+        command = [sys.executable, "-m", "streamlit", *serve_args]
 
     # The child writes to a file, not a pipe: a full pipe would block the server
     # before it ever answered, which would look exactly like the bug we test for.
@@ -101,6 +145,8 @@ def main() -> int:
                 f"FAIL: no answer on 127.0.0.1:{port} within {START_TIMEOUT:.0f}s "
                 f"(last error: {last_error})"
             )
+            if args.stacks:
+                request_stack_dump(process)
             return 1
         finally:
             process.terminate()
@@ -114,7 +160,7 @@ def main() -> int:
                 output = log.read().strip()
                 if output:
                     print("--- server output (tail) ---")
-                    print(output[-2000:])
+                    print(output[-8000:] if args.stacks else output[-2000:])
 
 
 if __name__ == "__main__":
