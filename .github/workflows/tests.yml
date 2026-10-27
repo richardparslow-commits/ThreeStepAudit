@@ -46,3 +46,9 @@ jobs:
 
       - name: Run tests
         run: uv run python -m unittest discover -s tests -t . -v
+
+      # AppTest never opens a socket, so a Streamlit release that boots but
+      # serves nothing would pass the suite above. This boots the real server
+      # and polls it, so a broken server fails the job instead of shipping.
+      - name: Check the server actually serves
+        run: uv run python scripts/smoke_serve.py

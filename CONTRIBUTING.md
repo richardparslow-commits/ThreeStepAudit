@@ -22,7 +22,13 @@ $ uv run python -m unittest discover -s tests -t . -v
 ```
 
 That is the command `.github/workflows/tests.yml` runs, so a green local run is
-what CI checks.
+what CI checks. CI then boots the real server and polls it, because the AppTest
+suite never opens a socket and would not notice a release that starts but serves
+nothing:
+
+```
+$ uv run python scripts/smoke_serve.py
+```
 
 ## Commit with the helper
 
