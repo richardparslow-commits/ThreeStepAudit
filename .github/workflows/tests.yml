@@ -31,8 +31,16 @@ jobs:
       - name: Install the Python version pinned in .python-version
         run: uv python install
 
-      # --locked makes the job fail instead of re-resolving, so a stale uv.lock
-      # surfaces here rather than drifting quietly the way it did before.
+      # Fails before anything is installed when pyproject.toml changed without a
+      # `uv lock` in the same commit, naming the lockfile as the problem. The
+      # sync below would also refuse a stale lock, but only after building the
+      # environment, and its error reads as a sync failure rather than a stale
+      # lock. `--check` never rewrites the file, so CI cannot paper over it.
+      - name: Check the lock matches pyproject.toml
+        run: uv lock --check
+
+      # Belt and braces: --locked also makes the install refuse to re-resolve,
+      # so nothing is installed from a resolution this workflow hasn't seen.
       - name: Install dependencies from the lock
         run: uv sync --locked
 
