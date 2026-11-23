@@ -187,6 +187,23 @@ class DraftStoreFailureTests(unittest.TestCase):
             with self.assertRaises(DraftStoreError):
                 store.load(VISITOR_A)
 
+    def test_schema_failure_raises_store_error_and_leaves_the_file_closable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "clash.sqlite3"
+            # A table of the same name with the wrong shape: CREATE TABLE IF NOT
+            # EXISTS succeeds, so force the failure by making "drafts" a view
+            # that cannot be created over something incompatible.
+            with sqlite3.connect(db_path) as conn:
+                conn.execute("CREATE TABLE drafts (unrelated TEXT)")
+                conn.execute("DROP TABLE drafts")
+                conn.execute("CREATE VIEW drafts AS SELECT 1 AS id")
+            store = DraftStore(db_path)
+            with self.assertRaises(DraftStoreError):
+                store.load(VISITOR_A)
+            # The connection must have been closed, so the file is deletable.
+            db_path.unlink()
+            self.assertFalse(db_path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

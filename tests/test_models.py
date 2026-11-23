@@ -82,6 +82,17 @@ class ValidationTests(unittest.TestCase):
         errors = make_scope(objectives=["x" * 251]).validate()
         self.assertEqual([error.field for error in errors], ["objectives"])
 
+    def test_other_criteria_without_a_name_still_reads_as_other(self) -> None:
+        self.assertEqual(make_scope(standard="Other").criteria(), "Other")
+
+    def test_custom_standard_is_length_checked_even_when_unused(self) -> None:
+        errors = make_scope(standard="ISO 27001", custom_standard="x" * 81).validate()
+        self.assertEqual([error.field for error in errors], ["custom_standard"])
+
+    def test_duplicate_in_scope_areas_are_rejected(self) -> None:
+        errors = make_scope(in_scope_areas=["Access control", "Access control"]).validate()
+        self.assertEqual([error.field for error in errors], ["in_scope_areas"])
+
 
 class SerializationTests(unittest.TestCase):
     def test_dict_round_trip(self) -> None:
@@ -135,6 +146,13 @@ class ParseLinesTests(unittest.TestCase):
 
     def test_empty_input_yields_no_objectives(self) -> None:
         self.assertEqual(parse_lines("   \n\t\n"), [])
+
+    def test_a_minus_is_only_a_bullet_when_followed_by_a_space(self) -> None:
+        text = "-5 days\n- bullet with space\n* star bullet\n• dot bullet\n-\nplain"
+        self.assertEqual(
+            parse_lines(text),
+            ["-5 days", "bullet with space", "star bullet", "dot bullet", "plain"],
+        )
 
 
 if __name__ == "__main__":

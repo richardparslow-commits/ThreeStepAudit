@@ -36,6 +36,12 @@ class Workflow:
             raise ValueError("draft data must be a JSON object")
 
         if "scope" in data or "evidence" in data or "findings" in data:
+            version = data.get("version", DOCUMENT_VERSION)
+            if not isinstance(version, int) or version > DOCUMENT_VERSION:
+                raise ValueError(
+                    f"this draft was saved by a newer version ({version!r}); "
+                    f"this app reads up to {DOCUMENT_VERSION}"
+                )
             raw_scope = data.get("scope")
             raw_evidence = data.get("evidence")
             raw_findings = data.get("findings")

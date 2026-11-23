@@ -53,13 +53,18 @@ class FieldError:
 def parse_lines(value: str) -> list[str]:
     """Turn a textarea's contents into a clean list of distinct entries.
 
-    Blank lines are dropped, leading ``-``/``*``/``•`` bullets are removed, and
+    Blank lines are dropped, a leading ``-``/``*``/``•`` bullet is removed when
+    it is a marker (followed by a space or alone) rather than a sign, and
     duplicates (case-insensitive) keep only their first spelling.
     """
     entries: list[str] = []
     seen: set[str] = set()
     for raw in value.splitlines():
-        line = raw.strip().lstrip("-*•").strip()
+        line = raw.strip()
+        # Drop one bullet marker, but only when it is a marker: "-5 days" keeps
+        # its sign, while "- 5 days" and "• 5 days" lose the bullet.
+        if line and line[0] in "-*•" and (len(line) == 1 or line[1].isspace()):
+            line = line[1:].strip()
         if not line:
             continue
         key = line.casefold()
@@ -91,7 +96,7 @@ class AuditScope:
     def criteria(self) -> str:
         """The criteria actually applied, resolving the 'Other' free-text case."""
         if self.standard == "Other":
-            return self.custom_standard.strip()
+            return self.custom_standard.strip() or "Other"
         return self.standard
 
     def period_label(self) -> str:
@@ -127,10 +132,10 @@ class AuditScope:
                 errors.append(
                     FieldError("custom_standard", "Name the criteria you are auditing against.")
                 )
-            elif len(named) > 80:
-                errors.append(
-                    FieldError("custom_standard", "Named criteria must be 80 characters or fewer.")
-                )
+        if len(self.custom_standard) > 80:
+            errors.append(
+                FieldError("custom_standard", "Named criteria must be 80 characters or fewer.")
+            )
 
         if self.period_start is None:
             errors.append(FieldError("period_start", "Period start is required."))
@@ -168,6 +173,8 @@ class AuditScope:
             errors.append(
                 FieldError("in_scope_areas", f"Unknown area(s) in scope: {', '.join(unknown)}.")
             )
+        if len(set(self.in_scope_areas)) != len(self.in_scope_areas):
+            errors.append(FieldError("in_scope_areas", "Each in-scope area can only be listed once."))
 
         if not self.objectives:
             errors.append(FieldError("objectives", "Record at least one audit objective."))

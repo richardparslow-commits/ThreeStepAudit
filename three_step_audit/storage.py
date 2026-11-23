@@ -57,6 +57,7 @@ class DraftStore:
 
     @contextmanager
     def _session(self) -> Iterator[sqlite3.Connection]:
+        conn: sqlite3.Connection | None = None
         try:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
             conn = sqlite3.connect(self.db_path, timeout=5.0)
@@ -64,6 +65,8 @@ class DraftStore:
             conn.execute(_SCHEMA)
             conn.commit()
         except (OSError, sqlite3.Error) as exc:
+            if conn is not None:
+                conn.close()
             raise DraftStoreError(f"cannot open the draft database: {exc}") from exc
 
         try:

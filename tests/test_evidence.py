@@ -210,6 +210,12 @@ class SerializationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Workflow.from_json("{broken")
 
+    def test_workflow_rejects_a_document_from_a_newer_version(self) -> None:
+        document = Workflow(scope=sample_scope()).to_dict()
+        document["version"] = 99
+        with self.assertRaises(ValueError):
+            Workflow.from_dict(document)
+
     def test_file_stem_uses_the_audit_title(self) -> None:
         workflow = Workflow(scope=sample_scope())
         self.assertEqual(workflow.file_stem(), "fy26-access-control-review")
