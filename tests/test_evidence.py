@@ -35,7 +35,7 @@ def sample_item(**overrides: object) -> EvidenceItem:
         "description": "Quarterly access review completed for all production systems.",
         "source": "Identity team / review log",
         "objective": OBJECTIVE_ONE,
-        "collected_on": date(2026, 10, 1),
+        "collected_on": date(2026, 5, 15),
         "result": "Pass",
         "notes": "",
     }
@@ -100,11 +100,41 @@ class EvidenceValidationTests(unittest.TestCase):
         errors = plan.validate(sample_scope(), TODAY)
         self.assertIn("items.0.collected_on", [error.field for error in errors])
 
+    def test_evidence_outside_the_audit_period_is_rejected(self) -> None:
+        scope = sample_scope()
+        for outside in (date(2025, 12, 31), date(2026, 7, 1)):
+            with self.subTest(collected_on=outside):
+                plan = build_plan(items=[sample_item(collected_on=outside)])
+                errors = plan.validate(scope, TODAY)
+                self.assertIn("items.0.collected_on", [error.field for error in errors])
+                self.assertIn("audit period", errors[0].message)
+
     def test_unknown_result_is_rejected(self) -> None:
         plan = build_plan(items=[sample_item(result="Mostly fine")])
         errors = plan.validate(sample_scope(), TODAY)
         self.assertIn("items.0.result", [error.field for error in errors])
         self.assertIn("Not tested", TEST_RESULTS)
+
+    def test_duplicate_evidence_references_are_rejected(self) -> None:
+        plan = build_plan(
+            items=[
+                sample_item(),
+                sample_item(objective=OBJECTIVE_TWO, source="HR export"),
+            ]
+        )
+        fields = [error.field for error in plan.validate(sample_scope(), TODAY)]
+        self.assertIn("items.1.reference", fields)
+
+    def test_untested_evidence_does_not_cover_an_objective(self) -> None:
+        plan = build_plan(
+            items=[
+                sample_item(result="Not tested"),
+                sample_item(reference="AC-02", objective=OBJECTIVE_TWO, source="HR export"),
+            ]
+        )
+        errors = plan.validate(sample_scope(), TODAY)
+        self.assertEqual([error.field for error in errors], ["items"])
+        self.assertIn(OBJECTIVE_ONE, errors[0].message)
 
     def test_exception_needs_an_explanation(self) -> None:
         second_item = sample_item(reference="AC-02", objective=OBJECTIVE_TWO, source="HR export")
@@ -141,6 +171,11 @@ class EvidenceSummaryTests(unittest.TestCase):
         totals = build_plan(items=[sample_item()]).summary(sample_scope())
         self.assertEqual(totals["objectives_covered"], 1)
 
+    def test_untested_item_is_not_counted_as_coverage(self) -> None:
+        totals = build_plan(items=[sample_item(result="Not tested")]).summary(sample_scope())
+        self.assertEqual(totals["objectives_covered"], 0)
+        self.assertEqual(totals["results"]["Not tested"], 1)
+
 
 class SerializationTests(unittest.TestCase):
     def test_evidence_round_trips_through_dict(self) -> None:
@@ -149,7 +184,7 @@ class SerializationTests(unittest.TestCase):
 
     def test_item_dates_are_iso_strings(self) -> None:
         raw = sample_item().to_dict()
-        self.assertEqual(raw["collected_on"], "2026-10-01")
+        self.assertEqual(raw["collected_on"], "2026-05-15")
         self.assertEqual(EvidenceItem.from_dict(raw), sample_item())
 
     def test_bad_item_types_are_rejected(self) -> None:

@@ -3,9 +3,11 @@ name = "three-step-audit"
 version = "0.1.0"
 description = "Capture an audit in three steps and export the finished report as Markdown."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
-    "streamlit>=1.59.0",
+    # 1.66.1 intermittently accepted connections but served nothing on macOS;
+    # see streamlit-1.66.1-serve-failure.md. Drop the exclusion once resolved.
+    "streamlit>=1.59.0,!=1.66.1",
 ]
 
 [tool.uv]

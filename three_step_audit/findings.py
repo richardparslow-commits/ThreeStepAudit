@@ -91,7 +91,7 @@ class Finding:
             errors.append(
                 FieldError("evidence_reference", "Link this finding to a piece of evidence.")
             )
-        elif self.evidence_reference not in {item.reference.strip() for item in evidence.items}:
+        elif self.evidence_reference.strip() not in {item.reference.strip() for item in evidence.items}:
             errors.append(
                 FieldError(
                     "evidence_reference",
@@ -183,6 +183,13 @@ class Conclusion:
         if self.opinion not in OPINIONS:
             errors.append(FieldError("opinion", "Choose one of the listed opinions."))
         else:
+            if self.opinion == OPINIONS[-1]:
+                errors.append(
+                    FieldError(
+                        "opinion",
+                        "Choose the audit opinion before concluding: 'Not concluded' cannot be saved.",
+                    )
+                )
             open_high = [
                 finding
                 for finding in findings
@@ -194,6 +201,20 @@ class Conclusion:
                         "opinion",
                         "Cannot conclude 'Conforms' while a High finding is still open "
                         f"({', '.join(f.reference.strip() or 'unnumbered' for f in open_high)}).",
+                    )
+                )
+            overdue_high = [
+                finding
+                for finding in open_high
+                if finding.due_on is not None and finding.due_on < today
+            ]
+            if overdue_high:
+                errors.append(
+                    FieldError(
+                        "opinion",
+                        "High finding(s) past their due date are still open; remediate, accept "
+                        "or re-date them first "
+                        f"({', '.join(f.reference.strip() or 'unnumbered' for f in overdue_high)}).",
                     )
                 )
 
@@ -278,11 +299,11 @@ class FindingRegister:
             seen.add(reference)
 
         if evidence is not None:
-            linked = {finding.evidence_reference for finding in self.findings}
+            linked = {finding.evidence_reference.strip() for finding in self.findings}
             unexplained = [
-                item.reference
+                item.reference.strip()
                 for item in evidence.items
-                if item.result == "Exception" and item.reference not in linked
+                if item.result == "Exception" and item.reference.strip() not in linked
             ]
             if unexplained:
                 errors.append(

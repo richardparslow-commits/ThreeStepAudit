@@ -71,7 +71,9 @@ def render_step_list(workflow: Workflow) -> None:
 
     with st.sidebar:
         st.header("Audit workflow")
+        st.caption(f"Step status: {sum(status == 'saved' for status in state)} of {len(state)} saved")
         for number, (name, status) in enumerate(zip(STEPS, state, strict=True), start=1):
+            # Words carry the status, not just the colour or the ▶/✓ glyph.
             if status == "in progress":
                 st.markdown(f"**▶ {number}. {name}**  \n:gray[{status}]")
             elif status == "saved":

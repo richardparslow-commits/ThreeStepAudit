@@ -79,6 +79,20 @@ class EvidenceItem:
             errors.append(FieldError("collected_on", "Evidence date is required."))
         elif self.collected_on > today:
             errors.append(FieldError("collected_on", "Evidence cannot be dated in the future."))
+        elif scope.period_start is not None and self.collected_on < scope.period_start:
+            errors.append(
+                FieldError(
+                    "collected_on",
+                    f"Evidence cannot predate the audit period ({scope.period_start.isoformat()}).",
+                )
+            )
+        elif scope.period_end is not None and self.collected_on > scope.period_end:
+            errors.append(
+                FieldError(
+                    "collected_on",
+                    f"Evidence cannot postdate the audit period ({scope.period_end.isoformat()}).",
+                )
+            )
 
         if self.result not in TEST_RESULTS:
             errors.append(FieldError("result", "Choose one of the listed test results."))
@@ -153,10 +167,21 @@ class EvidencePlan:
             errors.append(FieldError("items", "Record at least one piece of evidence."))
 
         covered: set[str] = set()
+        seen_references: set[str] = set()
         for index, item in enumerate(self.items):
             for error in item.validate(scope, today):
                 errors.append(FieldError(f"items.{index}.{error.field}", error.message))
-            if item.objective in scope.objectives:
+            reference = item.reference.strip()
+            if reference:
+                if reference in seen_references:
+                    errors.append(
+                        FieldError(
+                            f"items.{index}.reference", "This reference is already used."
+                        )
+                    )
+                seen_references.add(reference)
+            # A "Not tested" item records nothing: it must not satisfy an objective.
+            if item.objective in scope.objectives and item.result != TEST_RESULTS[0]:
                 covered.add(item.objective)
 
         if self.items:
@@ -177,7 +202,11 @@ class EvidencePlan:
         for item in self.items:
             if item.result in results:
                 results[item.result] += 1
-        covered = {item.objective for item in self.items if item.objective in scope.objectives}
+        covered = {
+            item.objective
+            for item in self.items
+            if item.objective in scope.objectives and item.result != TEST_RESULTS[0]
+        }
         return {
             "items": len(self.items),
             "results": results,

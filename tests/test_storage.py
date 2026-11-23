@@ -42,7 +42,7 @@ def sample_plan() -> EvidencePlan:
                 description="Quarterly access review completed for all production systems.",
                 source="Identity team",
                 objective="Confirm access reviews happen quarterly",
-                collected_on=date(2026, 10, 1),
+                collected_on=date(2026, 5, 15),
                 result="Pass",
             )
         ],

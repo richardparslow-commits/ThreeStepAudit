@@ -39,7 +39,7 @@ def sample_evidence(exception: bool = True) -> EvidencePlan:
                 description="Quarterly access review completed for all production systems.",
                 source="Identity team",
                 objective=OBJECTIVE_ONE,
-                collected_on=date(2026, 10, 1),
+                collected_on=date(2026, 5, 15),
                 result="Pass",
             ),
             EvidenceItem(
@@ -47,7 +47,7 @@ def sample_evidence(exception: bool = True) -> EvidencePlan:
                 description="Leaver access revoked within the 24 hour target for 11 of 12 cases.",
                 source="HR export",
                 objective=OBJECTIVE_TWO,
-                collected_on=date(2026, 10, 2),
+                collected_on=date(2026, 5, 16),
                 result="Exception" if exception else "Pass",
                 notes="One leaver disabled after 31 hours." if exception else "",
             ),
@@ -136,6 +136,10 @@ class FindingRegisterValidationTests(unittest.TestCase):
         self.assertIn("findings", [error.field for error in errors])
         self.assertIn("AC-02", errors[0].message)
 
+    def test_a_linked_finding_satisfies_the_exception_even_with_stray_spaces(self) -> None:
+        register = sample_register(findings=[sample_finding(evidence_reference=" AC-02 ")])
+        self.assertEqual(register.validate(sample_scope(), sample_evidence(), TODAY), [])
+
     def test_clean_evidence_allows_no_findings(self) -> None:
         register = FindingRegister(
             findings=[],
@@ -179,6 +183,27 @@ class ConclusionValidationTests(unittest.TestCase):
             conclusion=sample_conclusion(concluded_on=date(2026, 10, 27))
         ).validate(sample_scope(), sample_evidence(), TODAY)
         self.assertIn("conclusion.concluded_on", [error.field for error in errors])
+
+    def test_not_concluded_opinion_cannot_be_saved(self) -> None:
+        errors = sample_register(
+            conclusion=sample_conclusion(opinion="Not concluded")
+        ).validate(sample_scope(), sample_evidence(), TODAY)
+        self.assertIn("conclusion.opinion", [error.field for error in errors])
+
+    def test_overdue_open_high_finding_blocks_the_conclusion(self) -> None:
+        errors = sample_register(
+            findings=[sample_finding(due_on=date(2026, 10, 1))],
+            conclusion=sample_conclusion(opinion="Conforms with exceptions"),
+        ).validate(sample_scope(), sample_evidence(), TODAY)
+        self.assertIn("conclusion.opinion", [error.field for error in errors])
+        self.assertIn("F-01", errors[0].message)
+
+    def test_future_due_date_does_not_block_the_conclusion(self) -> None:
+        register = sample_register(
+            findings=[sample_finding(due_on=date(2026, 12, 1))],
+            conclusion=sample_conclusion(opinion="Conforms with exceptions"),
+        )
+        self.assertEqual(register.validate(sample_scope(), sample_evidence(), TODAY), [])
 
 
 class FindingSummaryTests(unittest.TestCase):

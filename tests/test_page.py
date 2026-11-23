@@ -105,6 +105,9 @@ def fill_single_evidence(at: AppTest) -> None:
         "Quarterly access review completed for all production systems."
     )
     at.text_input(key=f"ev_{item_id}_source").set_value("Identity team")
+    # Left at the default "Not tested" the item proves nothing and no longer
+    # counts as coverage, so the page test has to record an actual result.
+    at.selectbox(key=f"ev_{item_id}_result").set_value("Pass")
 
 
 class PageWiringTest(unittest.TestCase):

@@ -95,7 +95,8 @@ def render_evidence_item(scope: AuditScope, number: int, item_id: str) -> None:
         row[1].date_input(
             "Collected on",
             value=(seed.collected_on if seed and seed.collected_on else date.today()),
-            max_value=date.today(),
+            min_value=scope.period_start,
+            max_value=min(date.today(), scope.period_end or date.today()),
             key=evidence_widget_key(item_id, "collected_on"),
         )
         row = st.columns(2)

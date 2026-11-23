@@ -39,7 +39,7 @@ def sample_evidence() -> EvidencePlan:
                 description="Quarterly access review completed | signed off by the CISO.",
                 source="Identity team",
                 objective="Confirm access reviews happen quarterly",
-                collected_on=date(2026, 10, 1),
+                collected_on=date(2026, 5, 15),
                 result="Pass",
                 notes="No gaps | no exceptions",
             )
@@ -104,7 +104,7 @@ class CompleteReportTests(unittest.TestCase):
     def test_evidence_table_and_detail_lines(self) -> None:
         self.assertIn("| Ref | Objective | Source | Collected | Result |", self.report)
         self.assertIn("| AC-01 | Confirm access reviews happen quarterly |", self.report)
-        self.assertIn("| Identity team | 2026-10-01 | Pass |", self.report)
+        self.assertIn("| Identity team | 2026-05-15 | Pass |", self.report)
         self.assertIn(r"- **AC-01** — Quarterly access review completed \| signed off", self.report)
         self.assertIn(r"_Notes: No gaps \| no exceptions_", self.report)
 
